@@ -60,8 +60,8 @@ Returns a sanitized fragment (list of strings and XML-NODEs)."
            (or (io.github.cl-sdk.xml:xml-comment-p child)
                (io.github.cl-sdk.xml:xml-pi-p child)))
           (node-policy-state (node)
-            (let* ((serialized-tag-name (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
-                   (policy-tag-name (string-downcase serialized-tag-name)))
+            (let ((policy-tag-name (string-downcase
+                                    (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))))
               (values (gethash policy-tag-name denied)
                       (gethash policy-tag-name strip-content))))
           (node-stripped-with-content-p (node)

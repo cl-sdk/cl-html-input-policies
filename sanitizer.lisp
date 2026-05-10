@@ -45,10 +45,10 @@
     (error "Expected ~a to be a string, got ~S" context value))
   value)
 
-(defparameter +xml-whitespace-string+ (string #\Space #\Tab #\Newline #\Return))
+(defparameter +xml-whitespace-chars+ (list #\Space #\Tab #\Newline #\Return))
 
 (defun %whitespace-only-text-p (text)
-  (every (lambda (ch) (position ch +xml-whitespace-string+ :test #'char=)) text))
+  (every (lambda (ch) (find ch +xml-whitespace-chars+)) text))
 
 (defclass sanitizing-dom-builder (io.github.cl-sdk.xml:dom-builder)
   ((%denied-tags :initarg :denied-tags :reader sanitizing-dom-builder-denied-tags)
@@ -70,7 +70,8 @@
 
 (defun %builder-push-fragment-child (handler child)
   (if (sanitizing-dom-builder-stack handler)
-      (push child (third (first (sanitizing-dom-builder-stack handler))))
+      (let ((frame (first (sanitizing-dom-builder-stack handler))))
+        (push child (third frame)))
       (push child (sanitizing-dom-builder-fragment handler))))
 
 (defmethod io.github.cl-sdk.xml:start-document ((handler sanitizing-dom-builder))

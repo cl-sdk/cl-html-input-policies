@@ -17,12 +17,50 @@
    :doctype nil
    :root root))
 
+(defun xml-name->string (name)
+  (cond
+    ((stringp name) name)
+    ((symbolp name) (string-downcase (symbol-name name)))
+    ((io.github.cl-sdk.xml:xml-qname-p name)
+     (let ((prefix (io.github.cl-sdk.xml:xml-qname-prefix name))
+           (local-name (io.github.cl-sdk.xml:xml-qname-local-name name)))
+       (if prefix
+           (format nil "~a:~a" prefix local-name)
+           local-name)))
+    (t (string-downcase (princ-to-string name)))))
+
+(defun render-sanitized-fragment (fragment)
+  (labels ((render-node (node stream)
+             (let ((tag (xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
+                   (attributes (io.github.cl-sdk.xml:xml-node-attributes node))
+                   (children (io.github.cl-sdk.xml:xml-node-children node)))
+               (format stream "<~a" tag)
+               (dolist (attr attributes)
+                 (format stream " ~a=\"~a\""
+                         (xml-name->string (car attr))
+                         (if (cdr attr) (princ-to-string (cdr attr)) "")))
+               (if (null children)
+                   (write-string "/>" stream)
+                   (progn
+                     (write-char #\> stream)
+                     (dolist (child children)
+                       (render-child child stream))
+                     (format stream "</~a>" tag)))))
+           (render-child (child stream)
+             (cond
+               ((stringp child) (write-string child stream))
+               ((io.github.cl-sdk.xml:xml-node-p child) (render-node child stream))
+               (t (write-string (princ-to-string child) stream)))))
+    (with-output-to-string (out)
+      (dolist (entry fragment)
+        (render-child entry out)))))
+
 (test removes-script-tag-and-content
   (let* ((script (make-test-node "script" :children '("alert(1)")))
          (root (make-test-node "p" :children (list "Hello" script "World"))))
     (is (string=
          "<p>HelloWorld</p>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test removes-denied-tag-but-keeps-its-text-content
   (let* ((b (make-test-node "b" :children '("Hello")))
@@ -30,50 +68,51 @@
          (root (make-test-node "p" :children (list b " " i))))
     (is (string=
          "<p>Hello world</p>"
-         (sanitize-html-input (make-test-doc root) '("b" "i"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("b" "i")))))))
 
 (test keeps-allowed-tags
   (let* ((em (make-test-node "em" :children '("safe")))
          (root (make-test-node "p" :children (list em " text"))))
     (is (string=
          "<p><em>safe</em> text</p>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test removes-denied-self-closing-tags
   (let* ((br (make-test-node "br"))
          (root (make-test-node "p" :children (list "Hello" br "World"))))
     (is (string=
          "<p>HelloWorld</p>"
-         (sanitize-html-input (make-test-doc root) '("br"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("br")))))))
 
 (test removes-self-closing-dangerous-tag
   (let* ((script (make-test-node "script"))
          (root (make-test-node "p" :children (list script "safe"))))
     (is (string=
          "<p>safe</p>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test unwraps-denied-root-while-keeping-children
   (let* ((script (make-test-node "script"))
          (root (make-test-node "root" :children (list "Hello" script "World"))))
     (is (string=
          "HelloWorld"
-         (sanitize-html-input (make-test-doc root) '("script" "root"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script" "root")))))))
 
 (test strips-denied-root-with-strip-content
   (let ((root (make-test-node "script" :children (list "Hello" "World"))))
     (is (string=
          ""
-         (sanitize-html-input (make-test-doc root)
-                              '("script")
-                              :strip-content-tags '("script"))))))
+         (render-sanitized-fragment
+          (sanitize-html-input (make-test-doc root)
+                               '("script")
+                               :strip-content-tags '("script")))))))
 
 (test tag-check-is-case-insensitive
   (let* ((script (make-test-node "SCRIPT" :children '("alert(1)")))
          (root (make-test-node "div" :children (list script))))
     (is (string=
          "<div></div>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test removes-nested-script-tags-with-content
   (let* ((inner (make-test-node "script" :children '("2")))
@@ -81,7 +120,7 @@
          (root (make-test-node "p" :children (list outer "x"))))
     (is (string=
          "<p>x</p>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test removes-script-tags-with-attributes-and-content
   (let* ((script (make-test-node "script"
@@ -90,7 +129,7 @@
          (root (make-test-node "p" :children (list script "ok"))))
     (is (string=
          "<p>ok</p>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test accepts-xml-document-structures-as-input
   (let* ((script-node (io.github.cl-sdk.xml:make-xml-node
@@ -107,4 +146,15 @@
                :root p-node)))
     (is (string=
          "<p>HelloWorld</p>"
-         (sanitize-html-input doc '("script"))))))
+         (render-sanitized-fragment (sanitize-html-input doc '("script")))))))
+
+(test returns-sanitized-fragment-instead-of-string
+  (let* ((script (make-test-node "script" :children '("alert(1)")))
+         (root (make-test-node "p" :children (list "Hello" script "World")))
+         (result (sanitize-html-input (make-test-doc root) '("script"))))
+    (is (listp result))
+    (is (not (stringp result)))
+    (is (every (lambda (entry)
+                 (or (stringp entry)
+                     (io.github.cl-sdk.xml:xml-node-p entry)))
+               result))))

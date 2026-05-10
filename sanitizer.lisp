@@ -50,12 +50,11 @@
 DENIED-TAGS removes matching tags while keeping their text content.
 STRIP-CONTENT-TAGS identifies denied tags whose inner content is also removed and is normally a subset of DENIED-TAGS.
 INPUT must be an XML-DOCUMENT or XML-NODE from `io.github.cl-sdk.xml`.
-XML comments and processing instructions are removed from the output.
-CDATA nodes are treated as text and escaped in output.
-Returns a sanitized string."
+XML comments and processing instructions are removed from the output fragment.
+CDATA nodes are converted to plain text entries.
+Returns a sanitized fragment (list of strings and XML-NODEs)."
   (let* ((denied (%normalize-tag-set denied-tags))
-         (strip-content (%normalize-tag-set strip-content-tags))
-         (output (make-string-output-stream)))
+         (strip-content (%normalize-tag-set strip-content-tags)))
     (labels
         ((drop-from-output-child-node-p (child)
            (or (io.github.cl-sdk.xml:xml-comment-p child)
@@ -66,61 +65,48 @@ Returns a sanitized string."
              (values serialized-tag-name
                      (gethash policy-tag-name denied)
                      (gethash policy-tag-name strip-content))))
-         (node-stripped-with-content-p (node)
-           (multiple-value-bind (tag-name denied-p strip-p) (node-policy-state node)
-             (declare (ignore tag-name))
-             (and denied-p strip-p)))
-         (write-attributes (attributes)
-           (dolist (attr attributes)
-             (let ((name (%xml-name->string (car attr)))
-                   (value (cdr attr)))
-               (format output " ~a=\"~a\""
-                       name
-                       (%escape-attribute-value (if value (princ-to-string value) ""))))))
-         (write-children (children)
-           (dolist (child children)
-             (write-child child)))
-         (write-node (node)
-           (multiple-value-bind (serialized-tag-name denied-p strip-p) (node-policy-state node)
-             (let ((children (io.github.cl-sdk.xml:xml-node-children node)))
-               (cond
-                 ((and denied-p strip-p)
-                  nil)
-                 (denied-p
-                  (write-children children))
-                 (t
-                  (format output "<~a" serialized-tag-name)
-                  (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
-                  (if (null children)
-                      (write-string "/>" output)
-                      (progn
-                        (write-char #\> output)
-                        (write-children children)
-                        (format output "</~a>" serialized-tag-name))))))))
-         (write-child (child)
-           (cond
-             ((stringp child)
-              (write-string (%escape-text child) output))
-             ((io.github.cl-sdk.xml:xml-node-p child)
-              (write-node child))
-             ((io.github.cl-sdk.xml:xml-cdata-p child)
-              (write-string (%escape-text (%require-string (io.github.cl-sdk.xml:xml-cdata-data child)
-                                                           "XML CDATA data"))
-                            output))
-             ((drop-from-output-child-node-p child)
-              nil)
-             (t
-              (write-string (%escape-text (princ-to-string child)) output)))))
+          (node-stripped-with-content-p (node)
+            (multiple-value-bind (tag-name denied-p strip-p) (node-policy-state node)
+              (declare (ignore tag-name))
+              (and denied-p strip-p)))
+          (sanitize-children (children)
+            (loop for child in children append (sanitize-child child)))
+          (sanitize-node (node)
+            (multiple-value-bind (serialized-tag-name denied-p strip-p) (node-policy-state node)
+              (declare (ignore serialized-tag-name))
+              (let ((children (io.github.cl-sdk.xml:xml-node-children node)))
+                (cond
+                  ((and denied-p strip-p)
+                   nil)
+                  (denied-p
+                   (sanitize-children children))
+                  (t
+                   (list
+                    (io.github.cl-sdk.xml:make-xml-node
+                     :tag (io.github.cl-sdk.xml:xml-node-tag node)
+                     :attributes (io.github.cl-sdk.xml:xml-node-attributes node)
+                     :children (sanitize-children children))))))))
+          (sanitize-child (child)
+            (cond
+              ((stringp child)
+               (list child))
+              ((io.github.cl-sdk.xml:xml-node-p child)
+               (sanitize-node child))
+              ((io.github.cl-sdk.xml:xml-cdata-p child)
+               (list (%require-string (io.github.cl-sdk.xml:xml-cdata-data child)
+                                      "XML CDATA data")))
+              ((drop-from-output-child-node-p child)
+               nil)
+              (t
+               (list (princ-to-string child))))))
       (cond
         ((io.github.cl-sdk.xml:xml-document-p input)
-         (let ((root (io.github.cl-sdk.xml:xml-document-root input)))
-           (unless (node-stripped-with-content-p root)
-             (dolist (entry (io.github.cl-sdk.xml:xml-document-prolog input))
-               (write-child entry))
-             (write-node root))))
+          (let ((root (io.github.cl-sdk.xml:xml-document-root input)))
+            (unless (node-stripped-with-content-p root)
+              (append (sanitize-children (io.github.cl-sdk.xml:xml-document-prolog input))
+                      (sanitize-node root)))))
         ((io.github.cl-sdk.xml:xml-node-p input)
-         (write-node input))
+          (sanitize-node input))
         (t
-         (error "Unsupported input type ~S. Expected io.github.cl-sdk.xml:XML-DOCUMENT or io.github.cl-sdk.xml:XML-NODE."
-                (type-of input)))))
-    (get-output-stream-string output)))
+          (error "Unsupported input type ~S. Expected io.github.cl-sdk.xml:XML-DOCUMENT or io.github.cl-sdk.xml:XML-NODE."
+                 (type-of input)))))))

@@ -1,4 +1,4 @@
-(in-package #:cl-html-input-policies-test)
+(in-package #:cl-html-input-policies.test)
 
 (def-suite html-input-policies-suite)
 (in-suite html-input-policies-suite)
@@ -72,7 +72,7 @@
   (let* ((script (make-test-node "SCRIPT" :children '("alert(1)")))
          (root (make-test-node "div" :children (list script))))
     (is (string=
-         "<div/>"
+         "<div></div>"
          (sanitize-html-input (make-test-doc root) '("script"))))))
 
 (test removes-nested-script-tags-with-content

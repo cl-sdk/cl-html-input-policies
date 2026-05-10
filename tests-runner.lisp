@@ -4,6 +4,7 @@
 
 (asdf:initialize-source-registry)
 
-(ql:quickload :io.github.cl-sdk.json.test)
+(ql:quickload :cl-html-input-policies.test)
 
-(parachute:test :io.github.cl-sdk.json.test)
+(unless (5am:run-all-tests)
+  (uiop:quit -1))

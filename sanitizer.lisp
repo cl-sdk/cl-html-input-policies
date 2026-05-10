@@ -49,18 +49,36 @@
                 name
                 (%escape-attribute-value (if value (princ-to-string value) "")))))))
 
+(defun %ensure-no-sequence (text sequence context)
+  (when (search sequence text)
+    (error "Unsafe ~a content contains forbidden sequence ~s: ~s"
+           context
+           sequence
+           text))
+  text)
+
 (defun %serialize-xml-child (child)
   (cond
     ((stringp child) (%escape-text child))
     ((io.github.cl-sdk.xml:xml-node-p child) (%serialize-xml-node child))
     ((io.github.cl-sdk.xml:xml-comment-p child)
-     (format nil "<!--~a-->" (io.github.cl-sdk.xml:xml-comment-data child)))
+     (let ((data (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-comment-data child) "")
+                                      "-->"
+                                      "XML comment")))
+       (format nil "<!--~a-->" data)))
     ((io.github.cl-sdk.xml:xml-cdata-p child)
-     (format nil "<![CDATA[~a]]>" (io.github.cl-sdk.xml:xml-cdata-data child)))
+     (let ((data (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-cdata-data child) "")
+                                      "]]>"
+                                      "XML CDATA")))
+       (format nil "<![CDATA[~a]]>" data)))
     ((io.github.cl-sdk.xml:xml-pi-p child)
-     (format nil "<?~a ~a?>"
-             (io.github.cl-sdk.xml:xml-pi-target child)
-             (or (io.github.cl-sdk.xml:xml-pi-data child) "")))
+     (let ((target (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-pi-target child) "")
+                                        "?>"
+                                        "XML processing-instruction target"))
+           (data (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-pi-data child) "")
+                                      "?>"
+                                      "XML processing-instruction data")))
+       (format nil "<?~a ~a?>" target data)))
     (t (%escape-text (princ-to-string child)))))
 
 (defun %serialize-xml-node (node)
@@ -85,7 +103,7 @@
        (write-string (%serialize-xml-node (io.github.cl-sdk.xml:xml-document-root input)) out)))
     ((io.github.cl-sdk.xml:xml-node-p input)
      (%serialize-xml-node input))
-    (t (error "Unsupported INPUT type ~S. Expected string, XML-DOCUMENT, or XML-NODE." (type-of input)))))
+    (t (error "Unsupported input type ~S. Expected string, XML-DOCUMENT, or XML-NODE." (type-of input)))))
 
 (defun %find-tag-end (text start)
   (let* ((len (length text))

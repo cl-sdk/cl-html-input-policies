@@ -17,40 +17,6 @@
    :doctype nil
    :root root))
 
-(defun xml-name->string (name)
-  "Convert XML NAME representations to a comparable/renderable string."
-  (cond
-    ((stringp name) name)
-    ((symbolp name) (string-downcase (symbol-name name)))
-    ((io.github.cl-sdk.xml:xml-qname-p name)
-     (let ((prefix (io.github.cl-sdk.xml:xml-qname-prefix name))
-           (local-name (io.github.cl-sdk.xml:xml-qname-local-name name)))
-       (if prefix
-           (format nil "~a:~a" prefix local-name)
-           local-name)))
-    (t (string-downcase (princ-to-string name)))))
-
-(defun escape-fragment-text (text)
-  "Escape TEXT as XML/HTML character data for string-based test assertions."
-  (with-output-to-string (out)
-    (loop for ch across text do
-      (case ch
-        (#\& (write-string "&amp;" out))
-        (#\< (write-string "&lt;" out))
-        (#\> (write-string "&gt;" out))
-        (t (write-char ch out))))))
-
-(defun escape-fragment-attribute (text)
-  "Escape TEXT as an XML/HTML attribute value for test rendering."
-  (with-output-to-string (out)
-    (loop for ch across text do
-      (case ch
-        (#\& (write-string "&amp;" out))
-        (#\< (write-string "&lt;" out))
-        (#\> (write-string "&gt;" out))
-        (#\" (write-string "&quot;" out))
-        (t (write-char ch out))))))
-
 (defun attribute-value->string (value)
   "Normalize attribute VALUE to the string representation used by renderer."
   (if value (princ-to-string value) ""))
@@ -58,14 +24,15 @@
 (defun render-sanitized-fragment (fragment)
   "Render a sanitized FRAGMENT (strings and xml-node entries) to an XML string."
   (labels ((render-node (node stream)
-             (let ((tag (xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
+             (let ((tag (cl-html-input-policies::%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
                    (attributes (io.github.cl-sdk.xml:xml-node-attributes node))
                    (children (io.github.cl-sdk.xml:xml-node-children node)))
                (format stream "<~a" tag)
                (dolist (attr attributes)
                  (format stream " ~a=\"~a\""
-                         (xml-name->string (car attr))
-                         (escape-fragment-attribute (attribute-value->string (cdr attr)))))
+                         (cl-html-input-policies::%xml-name->string (car attr))
+                         (cl-html-input-policies::%escape-attribute-value
+                          (attribute-value->string (cdr attr)))))
                (if (null children)
                    (write-string "/>" stream)
                    (progn
@@ -75,7 +42,7 @@
                      (format stream "</~a>" tag)))))
            (render-child (child stream)
              (cond
-               ((stringp child) (write-string (escape-fragment-text child) stream))
+               ((stringp child) (write-string (cl-html-input-policies::%escape-text child) stream))
                ((io.github.cl-sdk.xml:xml-node-p child) (render-node child stream))
                (t (write-string (princ-to-string child) stream)))))
     (with-output-to-string (out)

@@ -2,7 +2,7 @@
 
 (defparameter *default-strip-content-tags*
   '("script" "style" "iframe" "object" "embed" "template" "svg" "math")
-  "Denied tags that should have both tag and inner content removed.")
+  "Subset of denied tags whose full element content should be removed.")
 
 (defun %normalize-tag-set (tags)
   (let ((result (make-hash-table :test #'equal)))
@@ -21,11 +21,12 @@
 
 (defun %attempt-parse-with-cl-sdk-xml (input)
   (let ((fn-symbol (%xml-parser-function)))
-    (when (and fn-symbol (fboundp fn-symbol))
-      (handler-case
-          (funcall (symbol-function fn-symbol) input)
-        (error ()
-          nil)))))
+    (if (and fn-symbol (fboundp fn-symbol))
+        (handler-case
+            (values (funcall (symbol-function fn-symbol) input) t)
+          (error ()
+            (values nil nil)))
+        (values nil nil))))
 
 (defun %find-tag-end (text start)
   (let* ((len (length text))
@@ -77,8 +78,13 @@
     (and (>= i 0) (char= (char raw-tag i) #\/))))
 
 (defun sanitize-html-input (input denied-tags &key (strip-content-tags *default-strip-content-tags*))
-  "Parse and sanitize HTML/XML-like INPUT by removing denied tags."
-  (%attempt-parse-with-cl-sdk-xml input)
+  "Sanitize HTML/XML-like INPUT based on DENIED-TAGS.
+DENIED-TAGS removes matching tags while keeping their text content.
+STRIP-CONTENT-TAGS is the subset of denied tags whose inner content is also removed.
+Returns a sanitized string."
+  (multiple-value-bind (parsed parsedp) (%attempt-parse-with-cl-sdk-xml input)
+    (when (and parsedp (stringp parsed))
+      (setf input parsed)))
   (let* ((denied (%normalize-tag-set denied-tags))
          (strip-content (%normalize-tag-set strip-content-tags))
          (output (make-string-output-stream))

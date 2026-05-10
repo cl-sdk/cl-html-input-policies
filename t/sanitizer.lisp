@@ -30,7 +30,7 @@
        (sanitize-html-input "<SCRIPT>alert(1)</SCRIPT>"
                             '("script")))))
 
-(test strips-nested-denied-content-tags
+(test removes-nested-script-tags-with-content
   (is (string=
        "<p>x</p>"
        (sanitize-html-input "<script>1<script>2</script>3</script><p>x</p>"

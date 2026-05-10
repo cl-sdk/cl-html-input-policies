@@ -3,53 +3,77 @@
 (def-suite html-input-policies-suite)
 (in-suite html-input-policies-suite)
 
+(defun node (tag &key (attributes nil) (children nil))
+  (io.github.cl-sdk.xml:make-xml-node
+   :tag tag
+   :attributes attributes
+   :children children))
+
+(defun doc (root)
+  (io.github.cl-sdk.xml:make-xml-document
+   :prolog nil
+   :doctype nil
+   :root root))
+
 (test removes-script-tag-and-content
-  (is (string=
-       "<p>HelloWorld</p>"
-       (sanitize-html-input "<p>Hello<script>alert(1)</script>World</p>"
-                            '("script")))))
+  (let* ((script (node "script" :children '("alert(1)")))
+         (root (node "p" :children (list "Hello" script "World"))))
+    (is (string=
+         "<p>HelloWorld</p>"
+         (sanitize-html-input (doc root) '("script"))))))
 
 (test removes-denied-tag-but-keeps-its-text-content
-  (is (string=
-       "<p>Hello world</p>"
-       (sanitize-html-input "<p><b>Hello</b> <i>world</i></p>"
-                            '("b" "i")))))
+  (let* ((b (node "b" :children '("Hello")))
+         (i (node "i" :children '("world")))
+         (root (node "p" :children (list b " " i))))
+    (is (string=
+         "<p>Hello world</p>"
+         (sanitize-html-input (doc root) '("b" "i"))))))
 
 (test keeps-allowed-tags
-  (is (string=
-       "<p><em>safe</em> text</p>"
-       (sanitize-html-input "<p><em>safe</em> text</p>"
-                            '("script")))))
+  (let* ((em (node "em" :children '("safe")))
+         (root (node "p" :children (list em " text"))))
+    (is (string=
+         "<p><em>safe</em> text</p>"
+         (sanitize-html-input (doc root) '("script"))))))
 
 (test removes-denied-self-closing-tags
-  (is (string=
-       "HelloWorld"
-       (sanitize-html-input "Hello<br/>World"
-                            '("br")))))
+  (let* ((br (node "br"))
+         (root (node "p" :children (list "Hello" br "World"))))
+    (is (string=
+         "<p>HelloWorld</p>"
+         (sanitize-html-input root '("br"))))))
 
 (test removes-self-closing-dangerous-tag
-  (is (string=
-       "safe"
-       (sanitize-html-input "<script/>safe"
-                            '("script")))))
+  (let* ((script (node "script"))
+         (root (node "p" :children (list script "safe"))))
+    (is (string=
+         "<p>safe</p>"
+         (sanitize-html-input root '("script"))))))
 
 (test tag-check-is-case-insensitive
-  (is (string=
-       ""
-       (sanitize-html-input "<SCRIPT>alert(1)</SCRIPT>"
-                            '("script")))))
+  (let* ((script (node "SCRIPT" :children '("alert(1)")))
+         (root (node "div" :children (list script))))
+    (is (string=
+         "<div/>"
+         (sanitize-html-input root '("script"))))))
 
 (test removes-nested-script-tags-with-content
-  (is (string=
-       "<p>x</p>"
-       (sanitize-html-input "<script>1<script>2</script>3</script><p>x</p>"
-                            '("script")))))
+  (let* ((inner (node "script" :children '("2")))
+         (outer (node "script" :children (list "1" inner "3")))
+         (root (node "p" :children (list outer "x"))))
+    (is (string=
+         "<p>x</p>"
+         (sanitize-html-input root '("script"))))))
 
 (test removes-script-tags-with-attributes-and-content
-  (is (string=
-       "<p>ok</p>"
-       (sanitize-html-input "<script src=\"evil.js\">alert(1)</script><p>ok</p>"
-                            '("script")))))
+  (let* ((script (node "script"
+                       :attributes '(("src" . "evil.js"))
+                       :children '("alert(1)")))
+         (root (node "p" :children (list script "ok"))))
+    (is (string=
+         "<p>ok</p>"
+         (sanitize-html-input root '("script"))))))
 
 (test accepts-xml-document-structures-as-input
   (let* ((script-node (io.github.cl-sdk.xml:make-xml-node

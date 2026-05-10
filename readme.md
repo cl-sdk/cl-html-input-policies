@@ -1,31 +1,38 @@
-## io.github.cl-sdk.html-input-policies
+# io.github.cl-sdk.html-input-policies
 
-Create policies to accept html input.
+`io.github.cl-sdk.html-input-policies` is a Common Lisp library for sanitizing HTML input.
+It helps applications accept user-provided markup more safely by removing denied tags,
+optionally stripping the content of dangerous elements, and returning a sanitized fragment
+built on top of `io.github.cl-sdk.xml`.
 
-Use this tool to help prevent security problems like XSS and others,
-by removing elements, attributes and validating URL references.
+## Examples
 
-# license
+### Sanitize while parsing
 
-```txt
-This is free and unencumbered software released into the public domain.
-
-Anyone is free to copy, modify, publish, use, compile, sell, or distribute
-this software, either in source code form or as a compiled binary, for any purpose,
-commercial or non-commercial, and by any means.
-
-In jurisdictions that recognize copyright laws, the author or authors of this software
-dedicate any and all copyright interest in the software to the public domain. We make
-this dedication for the benefit of the public at large and to the detriment of our heirs
-and successors. We intend this dedication to be an overt act of relinquishment in perpetuity
-of all present and future rights to this software under copyright law.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
-BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-OR OTHER DEALINGS IN THE SOFTWARE.
-
-For more information, please refer to <http://unlicense.org/>
+```common-lisp
+(io.github.cl-sdk.html-input-policies:parse-and-sanitize-html-input
+ "<p>Hello<script>alert(1)</script>World</p>"
+ '("script"))
 ```
+
+Result:
+
+```common-lisp
+;; => sanitized fragment equivalent to: <p>HelloWorld</p>
+```
+
+### Sanitize an existing XML document
+
+```common-lisp
+(io.github.cl-sdk.html-input-policies:sanitize-html-input
+ xml-document
+ '("script" "iframe")
+ :strip-content-tags '("script" "iframe"))
+```
+
+This removes denied tags from the document and fully drops the content of tags listed in
+`strip-content-tags`.
+
+## License
+
+This project is released under the terms described in [LICENSE](./LICENSE).

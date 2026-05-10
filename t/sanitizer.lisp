@@ -145,11 +145,16 @@
 (test returns-sanitized-fragment-instead-of-string
   (let* ((script (make-test-node "script" :children '("alert(1)")))
          (root (make-test-node "p" :children (list "Hello" script "World")))
-         (result (sanitize-html-input (make-test-doc root) '("script"))))
+         (result (sanitize-html-input (make-test-doc root) '("script")))
+         (first-entry (first result)))
     (is (listp result))
     (is (not (stringp result)))
     (is (string= "<p>HelloWorld</p>"
                  (render-sanitized-fragment result)))
+    (is (io.github.cl-sdk.xml:xml-node-p first-entry))
+    (is (string= "p" (io.github.cl-sdk.xml:xml-node-tag first-entry)))
+    (is (equal '("Hello" "World")
+               (io.github.cl-sdk.xml:xml-node-children first-entry)))
     (is (every (lambda (entry)
                  (or (stringp entry)
                      (io.github.cl-sdk.xml:xml-node-p entry)))

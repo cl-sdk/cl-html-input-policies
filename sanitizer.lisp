@@ -56,7 +56,7 @@ Returns a sanitized string."
          (strip-content (%normalize-tag-set strip-content-tags))
          (output (make-string-output-stream)))
     (labels
-        ((skip-child-node-p (child)
+        ((drop-from-output-child-node-p (child)
            (or (io.github.cl-sdk.xml:xml-comment-p child)
                (io.github.cl-sdk.xml:xml-pi-p child)))
          (write-attributes (attributes)
@@ -99,7 +99,7 @@ Returns a sanitized string."
               (write-string (%escape-text (%require-string (io.github.cl-sdk.xml:xml-cdata-data child)
                                                            "XML CDATA data"))
                             output))
-             ((skip-child-node-p child)
+             ((drop-from-output-child-node-p child)
               nil)
              (t
               (write-string (%escape-text (princ-to-string child)) output)))))

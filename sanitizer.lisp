@@ -59,6 +59,16 @@ Returns a sanitized string."
         ((drop-from-output-child-node-p (child)
            (or (io.github.cl-sdk.xml:xml-comment-p child)
                (io.github.cl-sdk.xml:xml-pi-p child)))
+         (node-policy-state (node)
+           (let* ((tag-name (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
+                  (tag-name-down (string-downcase tag-name)))
+             (values tag-name
+                     (gethash tag-name-down denied)
+                     (gethash tag-name-down strip-content))))
+         (node-stripped-with-content-p (node)
+           (multiple-value-bind (_tag-name denied-p strip-p) (node-policy-state node)
+             (declare (ignore _tag-name))
+             (and denied-p strip-p)))
          (write-attributes (attributes)
            (dolist (attr attributes)
              (let ((name (%xml-name->string (car attr)))
@@ -70,25 +80,22 @@ Returns a sanitized string."
            (dolist (child children)
              (write-child child)))
          (write-node (node)
-           (let* ((tag-name (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
-                  (tag-name-down (string-downcase tag-name))
-                  (denied-p (gethash tag-name-down denied))
-                  (strip-p (gethash tag-name-down strip-content))
-                  (children (io.github.cl-sdk.xml:xml-node-children node)))
-              (cond
-                ((and denied-p strip-p)
-                 nil)
-                (denied-p
-                 (write-children children))
-                (t
-                 (format output "<~a" tag-name)
-                 (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
-                 (if (null children)
-                     (write-string "/>" output)
-                     (progn
-                      (write-char #\> output)
-                      (write-children children)
-                      (format output "</~a>" tag-name)))))))
+           (multiple-value-bind (tag-name denied-p strip-p) (node-policy-state node)
+             (let ((children (io.github.cl-sdk.xml:xml-node-children node)))
+               (cond
+                 ((and denied-p strip-p)
+                  nil)
+                 (denied-p
+                  (write-children children))
+                 (t
+                  (format output "<~a" tag-name)
+                  (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
+                  (if (null children)
+                      (write-string "/>" output)
+                      (progn
+                        (write-char #\> output)
+                        (write-children children)
+                        (format output "</~a>" tag-name))))))))
          (write-child (child)
            (cond
              ((stringp child)
@@ -105,9 +112,11 @@ Returns a sanitized string."
               (write-string (%escape-text (princ-to-string child)) output)))))
       (cond
         ((io.github.cl-sdk.xml:xml-document-p input)
-         (dolist (entry (io.github.cl-sdk.xml:xml-document-prolog input))
-           (write-child entry))
-         (write-node (io.github.cl-sdk.xml:xml-document-root input)))
+         (let ((root (io.github.cl-sdk.xml:xml-document-root input)))
+           (unless (node-stripped-with-content-p root)
+             (dolist (entry (io.github.cl-sdk.xml:xml-document-prolog input))
+               (write-child entry))
+             (write-node root))))
         ((io.github.cl-sdk.xml:xml-node-p input)
          (write-node input))
         (t

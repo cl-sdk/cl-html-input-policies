@@ -4,12 +4,14 @@
 (in-suite html-input-policies-suite)
 
 (defun make-test-node (tag &key (attributes nil) (children nil))
+  "Create an XML node for sanitizer policy tests."
   (io.github.cl-sdk.xml:make-xml-node
    :tag tag
    :attributes attributes
    :children children))
 
 (defun make-test-doc (root)
+  "Create a minimal XML document with ROOT for sanitizer policy tests."
   (io.github.cl-sdk.xml:make-xml-document
    :prolog nil
    :doctype nil

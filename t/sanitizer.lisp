@@ -24,6 +24,12 @@
        (sanitize-html-input "Hello<br/>World"
                             '("br")))))
 
+(test removes-self-closing-dangerous-tag
+  (is (string=
+       "safe"
+       (sanitize-html-input "<script/>safe"
+                            '("script")))))
+
 (test tag-check-is-case-insensitive
   (is (string=
        ""
@@ -34,4 +40,10 @@
   (is (string=
        "<p>x</p>"
        (sanitize-html-input "<script>1<script>2</script>3</script><p>x</p>"
+                            '("script")))))
+
+(test removes-script-tags-with-attributes-and-content
+  (is (string=
+       "<p>ok</p>"
+       (sanitize-html-input "<script src=\"evil.js\">alert(1)</script><p>ok</p>"
                             '("script")))))

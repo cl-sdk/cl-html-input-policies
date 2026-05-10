@@ -31,13 +31,19 @@
 (defun %find-tag-end (text start)
   (let* ((len (length text))
          (i start)
-         (quote-char nil))
+         (quote-char nil)
+         (escaped-p nil))
     (loop while (< i len) do
       (let ((ch (char text i)))
         (cond
           (quote-char
-           (when (char= ch quote-char)
-             (setf quote-char nil)))
+           (cond
+             (escaped-p
+              (setf escaped-p nil))
+             ((char= ch #\\)
+              (setf escaped-p t))
+             ((char= ch quote-char)
+              (setf quote-char nil))))
           ((or (char= ch #\") (char= ch #\'))
            (setf quote-char ch))
           ((char= ch #\>)
@@ -116,8 +122,8 @@ Returns a sanitized string."
                                    (gethash tag-name strip-content)
                                    (not self-closing-p))
                               (push tag-name blocked-stack)))))
-                        ((or (null tag-name)
-                             (not (gethash tag-name denied)))
+                        ((null tag-name))
+                        ((not (gethash tag-name denied))
                          (write-string (subseq input i (1+ end)) output))
                         ((and (gethash tag-name strip-content)
                               (not closing-p)

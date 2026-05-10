@@ -45,8 +45,10 @@
     (error "Expected ~a to be a string, got ~S" context value))
   value)
 
+(defparameter +xml-whitespace-characters+ (string #\Space #\Tab #\Newline #\Return))
+
 (defun %whitespace-only-text-p (text)
-  (every (lambda (ch) (find ch '(#\Space #\Tab #\Newline #\Return))) text))
+  (every (lambda (ch) (position ch +xml-whitespace-characters+ :test #'char=)) text))
 
 (defclass sanitizing-dom-builder (io.github.cl-sdk.xml:dom-builder)
   ((%denied-tags :initarg :denied-tags :reader sanitizing-dom-builder-denied-tags)
@@ -56,9 +58,10 @@
    (%fragment :initform nil :accessor sanitizing-dom-builder-fragment)))
 
 (defun %tag-policy-state (tag denied strip-content)
-  (let ((policy-tag-name (string-downcase (%xml-name->string tag))))
-    (values (gethash policy-tag-name denied)
-            (gethash policy-tag-name strip-content))))
+  (let* ((policy-tag-name (string-downcase (%xml-name->string tag)))
+         (denied-p (gethash policy-tag-name denied)))
+    (values denied-p
+            (and denied-p (gethash policy-tag-name strip-content)))))
 
 (defun %builder-policy-state (handler tag)
   (%tag-policy-state tag
@@ -119,7 +122,7 @@
   nil)
 
 (defmethod io.github.cl-sdk.xml:cdata-section ((handler sanitizing-dom-builder) data)
-  (io.github.cl-sdk.xml:characters handler (%require-string data "XML CDATA data")))
+  (io.github.cl-sdk.xml:characters handler (%require-string data "CDATA section data")))
 
 (defmethod io.github.cl-sdk.xml:doctype-declaration ((handler sanitizing-dom-builder) doctype)
   (declare (ignore handler doctype))

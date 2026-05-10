@@ -50,3 +50,20 @@
        "<p>ok</p>"
        (sanitize-html-input "<script src=\"evil.js\">alert(1)</script><p>ok</p>"
                             '("script")))))
+
+(test accepts-xml-document-structures-as-input
+  (let* ((script-node (io.github.cl-sdk.xml:make-xml-node
+                       :tag "script"
+                       :attributes nil
+                       :children '("alert(1)")))
+         (p-node (io.github.cl-sdk.xml:make-xml-node
+                  :tag "p"
+                  :attributes nil
+                  :children (list "Hello" script-node "World")))
+         (doc (io.github.cl-sdk.xml:make-xml-document
+               :prolog nil
+               :doctype nil
+               :root p-node)))
+    (is (string=
+         "<p>HelloWorld</p>"
+         (sanitize-html-input doc '("script"))))))

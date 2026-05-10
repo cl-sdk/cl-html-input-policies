@@ -9,23 +9,83 @@
     (dolist (tag tags result)
       (setf (gethash (string-downcase (string tag)) result) t))))
 
-(defun %xml-parser-function ()
-  (let ((pkg (find-package :io.github.cl-sdk.xml)))
-    (when pkg
-      (or (find-symbol "PARSE" pkg)
-          (find-symbol "PARSE-STRING" pkg)
-          (find-symbol "READ-XML" pkg)
-          (find-symbol "FROM-STRING" pkg)
-          (find-symbol "LOAD-XML" pkg)))))
+(defun %xml-name->string (name)
+  (cond
+    ((stringp name) name)
+    ((symbolp name) (string-downcase (symbol-name name)))
+    ((io.github.cl-sdk.xml:xml-qname-p name)
+     (let ((prefix (io.github.cl-sdk.xml:xml-qname-prefix name))
+           (local-name (io.github.cl-sdk.xml:xml-qname-local-name name)))
+       (if prefix
+           (format nil "~a:~a" prefix local-name)
+           local-name)))
+    (t (string-downcase (princ-to-string name)))))
 
-(defun %attempt-parse-with-cl-sdk-xml (input)
-  (let ((fn-symbol (%xml-parser-function)))
-    (if (and fn-symbol (fboundp fn-symbol))
-        (handler-case
-            (values (funcall (symbol-function fn-symbol) input) t)
-          (error ()
-            (values nil nil)))
-        (values nil nil))))
+(defun %escape-text (text)
+  (with-output-to-string (out)
+    (loop for ch across text do
+      (case ch
+        (#\& (write-string "&amp;" out))
+        (#\< (write-string "&lt;" out))
+        (#\> (write-string "&gt;" out))
+        (t (write-char ch out))))))
+
+(defun %escape-attribute-value (value)
+  (with-output-to-string (out)
+    (loop for ch across value do
+      (case ch
+        (#\& (write-string "&amp;" out))
+        (#\< (write-string "&lt;" out))
+        (#\> (write-string "&gt;" out))
+        (#\" (write-string "&quot;" out))
+        (t (write-char ch out))))))
+
+(defun %serialize-xml-attributes (attributes)
+  (with-output-to-string (out)
+    (dolist (attr attributes)
+      (let ((name (%xml-name->string (car attr)))
+            (value (cdr attr)))
+        (format out " ~a=\"~a\""
+                name
+                (%escape-attribute-value (if value (princ-to-string value) "")))))))
+
+(defun %serialize-xml-child (child)
+  (cond
+    ((stringp child) (%escape-text child))
+    ((io.github.cl-sdk.xml:xml-node-p child) (%serialize-xml-node child))
+    ((io.github.cl-sdk.xml:xml-comment-p child)
+     (format nil "<!--~a-->" (io.github.cl-sdk.xml:xml-comment-data child)))
+    ((io.github.cl-sdk.xml:xml-cdata-p child)
+     (format nil "<![CDATA[~a]]>" (io.github.cl-sdk.xml:xml-cdata-data child)))
+    ((io.github.cl-sdk.xml:xml-pi-p child)
+     (format nil "<?~a ~a?>"
+             (io.github.cl-sdk.xml:xml-pi-target child)
+             (or (io.github.cl-sdk.xml:xml-pi-data child) "")))
+    (t (%escape-text (princ-to-string child)))))
+
+(defun %serialize-xml-node (node)
+  (let* ((tag (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
+         (attributes (%serialize-xml-attributes (io.github.cl-sdk.xml:xml-node-attributes node)))
+         (children (io.github.cl-sdk.xml:xml-node-children node)))
+    (if (null children)
+        (format nil "<~a~a/>" tag attributes)
+        (with-output-to-string (out)
+          (format out "<~a~a>" tag attributes)
+          (dolist (child children)
+            (write-string (%serialize-xml-child child) out))
+          (format out "</~a>" tag)))))
+
+(defun %input->string (input)
+  (cond
+    ((stringp input) input)
+    ((io.github.cl-sdk.xml:xml-document-p input)
+     (with-output-to-string (out)
+       (dolist (entry (io.github.cl-sdk.xml:xml-document-prolog input))
+         (write-string (%serialize-xml-child entry) out))
+       (write-string (%serialize-xml-node (io.github.cl-sdk.xml:xml-document-root input)) out)))
+    ((io.github.cl-sdk.xml:xml-node-p input)
+     (%serialize-xml-node input))
+    (t (error "Unsupported INPUT type ~S. Expected string, XML-DOCUMENT, or XML-NODE." (type-of input)))))
 
 (defun %find-tag-end (text start)
   (let* ((len (length text))
@@ -86,29 +146,27 @@
   "Sanitize HTML/XML-like INPUT based on DENIED-TAGS.
 DENIED-TAGS removes matching tags while keeping their text content.
 STRIP-CONTENT-TAGS identifies denied tags whose inner content is also removed and is normally a subset of DENIED-TAGS.
-If `io.github.cl-sdk.xml` pre-parse returns a string, that string is sanitized.
+INPUT may be a string, XML-DOCUMENT, or XML-NODE from `io.github.cl-sdk.xml`.
 Returns a sanitized string."
-  (multiple-value-bind (parsed parsedp) (%attempt-parse-with-cl-sdk-xml input)
-    (when (and parsedp (stringp parsed))
-      (setf input parsed)))
-  (let* ((denied (%normalize-tag-set denied-tags))
+  (let* ((input-text (%input->string input))
+         (denied (%normalize-tag-set denied-tags))
          (strip-content (%normalize-tag-set strip-content-tags))
          (output (make-string-output-stream))
-         (len (length input))
+         (len (length input-text))
          (i 0)
          (blocked-stack '()))
     (flet ((blocked-p () (not (null blocked-stack)))
            (blocked-tag () (car blocked-stack)))
       (loop while (< i len) do
-        (let ((ch (char input i)))
+        (let ((ch (char input-text i)))
           (if (char= ch #\<)
-              (let ((end (%find-tag-end input (1+ i))))
+              (let ((end (%find-tag-end input-text (1+ i))))
                 (if (null end)
                     (progn
                       (unless (blocked-p)
                         (write-char ch output))
                       (incf i))
-                    (let* ((raw (subseq input (1+ i) end))
+                    (let* ((raw (subseq input-text (1+ i) end))
                            (tag-name (%extract-tag-name raw))
                            (closing-p (%closing-tag-p raw))
                            (self-closing-p (%self-closing-tag-p raw)))
@@ -123,8 +181,8 @@ Returns a sanitized string."
                                    (not self-closing-p))
                               (push tag-name blocked-stack)))))
                         ((null tag-name))
-                        ((not (gethash tag-name denied))
-                         (write-string (subseq input i (1+ end)) output))
+                         ((not (gethash tag-name denied))
+                          (write-string (subseq input-text i (1+ end)) output))
                         ((and (gethash tag-name strip-content)
                               (not closing-p)
                               (not self-closing-p))

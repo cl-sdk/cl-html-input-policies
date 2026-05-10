@@ -45,10 +45,10 @@
     (error "Expected ~a to be a string, got ~S" context value))
   value)
 
-(defparameter +xml-whitespace-characters+ (string #\Space #\Tab #\Newline #\Return))
+(defparameter +xml-whitespace-string+ (string #\Space #\Tab #\Newline #\Return))
 
 (defun %whitespace-only-text-p (text)
-  (every (lambda (ch) (position ch +xml-whitespace-characters+ :test #'char=)) text))
+  (every (lambda (ch) (position ch +xml-whitespace-string+ :test #'char=)) text))
 
 (defclass sanitizing-dom-builder (io.github.cl-sdk.xml:dom-builder)
   ((%denied-tags :initarg :denied-tags :reader sanitizing-dom-builder-denied-tags)
@@ -133,6 +133,8 @@
 
 (defun parse-and-sanitize-html-input (input denied-tags &key (strip-content-tags *default-strip-content-tags*))
   "Parse INPUT and sanitize during DOM building using this package's local DOM-BUILDER extension.
+DENIED-TAGS is a list of denied tag names (strings/symbols).
+STRIP-CONTENT-TAGS is the subset of denied tags whose full content is removed.
 Returns a sanitized fragment (list of strings and XML-NODEs)."
   (let ((handler (make-instance 'sanitizing-dom-builder
                                 :denied-tags (%normalize-tag-set denied-tags)

@@ -51,6 +51,10 @@
         (#\" (write-string "&quot;" out))
         (t (write-char ch out))))))
 
+(defun attribute-value->string (value)
+  "Normalize attribute VALUE to the string representation used by renderer."
+  (if value (princ-to-string value) ""))
+
 (defun render-sanitized-fragment (fragment)
   "Render a sanitized FRAGMENT (strings and xml-node entries) to an XML string."
   (labels ((render-node (node stream)
@@ -61,7 +65,7 @@
                (dolist (attr attributes)
                  (format stream " ~a=\"~a\""
                          (xml-name->string (car attr))
-                         (escape-fragment-attribute (if (cdr attr) (princ-to-string (cdr attr)) ""))))
+                         (escape-fragment-attribute (attribute-value->string (cdr attr)))))
                (if (null children)
                    (write-string "/>" stream)
                    (progn
@@ -177,6 +181,8 @@
          (result (sanitize-html-input (make-test-doc root) '("script"))))
     (is (listp result))
     (is (not (stringp result)))
+    (is (string= "<p>HelloWorld</p>"
+                 (render-sanitized-fragment result)))
     (is (every (lambda (entry)
                  (or (stringp entry)
                      (io.github.cl-sdk.xml:xml-node-p entry)))

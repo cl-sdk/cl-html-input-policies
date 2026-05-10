@@ -45,6 +45,97 @@
     (error "Expected ~a to be a string, got ~S" context value))
   value)
 
+(defun %whitespace-only-text-p (text)
+  (every (lambda (ch) (find ch '(#\Space #\Tab #\Newline #\Return))) text))
+
+(defclass sanitizing-dom-builder (io.github.cl-sdk.xml:dom-builder)
+  ((%denied-tags :initarg :denied-tags :reader sanitizing-dom-builder-denied-tags)
+   (%strip-content-tags :initarg :strip-content-tags :reader sanitizing-dom-builder-strip-content-tags)
+   (%strip-depth :initform 0 :accessor sanitizing-dom-builder-strip-depth)
+   (%stack :initform nil :accessor sanitizing-dom-builder-stack)
+   (%fragment :initform nil :accessor sanitizing-dom-builder-fragment)))
+
+(defun %tag-policy-state (tag denied strip-content)
+  (let ((policy-tag-name (string-downcase (%xml-name->string tag))))
+    (values (gethash policy-tag-name denied)
+            (gethash policy-tag-name strip-content))))
+
+(defun %builder-policy-state (handler tag)
+  (%tag-policy-state tag
+                     (sanitizing-dom-builder-denied-tags handler)
+                     (sanitizing-dom-builder-strip-content-tags handler)))
+
+(defun %builder-push-fragment-child (handler child)
+  (if (sanitizing-dom-builder-stack handler)
+      (push child (third (first (sanitizing-dom-builder-stack handler))))
+      (push child (sanitizing-dom-builder-fragment handler))))
+
+(defmethod io.github.cl-sdk.xml:start-document ((handler sanitizing-dom-builder))
+  (setf (sanitizing-dom-builder-strip-depth handler) 0
+        (sanitizing-dom-builder-stack handler) nil
+        (sanitizing-dom-builder-fragment handler) nil))
+
+(defmethod io.github.cl-sdk.xml:start-element ((handler sanitizing-dom-builder) tag attributes)
+  (cond
+    ((plusp (sanitizing-dom-builder-strip-depth handler))
+     (incf (sanitizing-dom-builder-strip-depth handler)))
+    (t
+     (multiple-value-bind (denied-p strip-p) (%builder-policy-state handler tag)
+       (cond
+         ((and denied-p strip-p)
+          (setf (sanitizing-dom-builder-strip-depth handler) 1))
+         (denied-p
+          nil)
+         (t
+          (push (list tag attributes nil)
+                (sanitizing-dom-builder-stack handler))))))))
+
+(defmethod io.github.cl-sdk.xml:end-element ((handler sanitizing-dom-builder) tag)
+  (cond
+    ((plusp (sanitizing-dom-builder-strip-depth handler))
+     (decf (sanitizing-dom-builder-strip-depth handler)))
+    (t
+     (multiple-value-bind (denied-p strip-p) (%builder-policy-state handler tag)
+       (declare (ignore strip-p))
+       (unless denied-p
+         (let* ((frame (pop (sanitizing-dom-builder-stack handler)))
+                (node  (io.github.cl-sdk.xml:make-xml-node
+                        :tag (first frame)
+                        :attributes (second frame)
+                        :children (nreverse (third frame)))))
+           (%builder-push-fragment-child handler node)))))))
+
+(defmethod io.github.cl-sdk.xml:characters ((handler sanitizing-dom-builder) text)
+  (unless (or (plusp (sanitizing-dom-builder-strip-depth handler))
+              (%whitespace-only-text-p text))
+    (%builder-push-fragment-child handler text)))
+
+(defmethod io.github.cl-sdk.xml:comment ((handler sanitizing-dom-builder) data)
+  (declare (ignore handler data))
+  nil)
+
+(defmethod io.github.cl-sdk.xml:processing-instruction ((handler sanitizing-dom-builder) target data)
+  (declare (ignore handler target data))
+  nil)
+
+(defmethod io.github.cl-sdk.xml:cdata-section ((handler sanitizing-dom-builder) data)
+  (io.github.cl-sdk.xml:characters handler (%require-string data "XML CDATA data")))
+
+(defmethod io.github.cl-sdk.xml:doctype-declaration ((handler sanitizing-dom-builder) doctype)
+  (declare (ignore handler doctype))
+  nil)
+
+(defmethod io.github.cl-sdk.xml:end-document ((handler sanitizing-dom-builder))
+  (nreverse (sanitizing-dom-builder-fragment handler)))
+
+(defun parse-and-sanitize-html-input (input denied-tags &key (strip-content-tags *default-strip-content-tags*))
+  "Parse INPUT and sanitize during DOM building using this package's local DOM-BUILDER extension.
+Returns a sanitized fragment (list of strings and XML-NODEs)."
+  (let ((handler (make-instance 'sanitizing-dom-builder
+                                :denied-tags (%normalize-tag-set denied-tags)
+                                :strip-content-tags (%normalize-tag-set strip-content-tags))))
+    (io.github.cl-sdk.xml:parse-xml input :handler handler)))
+
 (defun sanitize-html-input (input denied-tags &key (strip-content-tags *default-strip-content-tags*))
   "Sanitize parsed HTML/XML INPUT based on DENIED-TAGS.
 DENIED-TAGS removes matching tags while keeping their text content.

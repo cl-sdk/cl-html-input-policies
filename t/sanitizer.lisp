@@ -155,7 +155,23 @@
     (is (string= "p" (io.github.cl-sdk.xml:xml-node-tag first-entry)))
     (is (equal '("Hello" "World")
                (io.github.cl-sdk.xml:xml-node-children first-entry)))
-    (is (every (lambda (entry)
-                 (or (stringp entry)
-                     (io.github.cl-sdk.xml:xml-node-p entry)))
-               result))))
+     (is (every (lambda (entry)
+                  (or (stringp entry)
+                      (io.github.cl-sdk.xml:xml-node-p entry)))
+                result))))
+
+(test parse-and-sanitize-filters-during-parse
+  (let ((result (parse-and-sanitize-html-input
+                 "<p>Hello<script>alert(1)</script>World</p>"
+                 '("script"))))
+    (is (string=
+         "<p>HelloWorld</p>"
+         (render-sanitized-fragment result)))))
+
+(test parse-and-sanitize-unwraps-denied-root
+  (let ((result (parse-and-sanitize-html-input
+                 "<root>Hello<script>alert(1)</script><b>World</b></root>"
+                 '("root" "script"))))
+    (is (string=
+         "Hello<b>World</b>"
+         (render-sanitized-fragment result)))))

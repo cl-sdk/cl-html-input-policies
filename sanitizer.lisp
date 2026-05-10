@@ -10,8 +10,7 @@
       (setf (gethash (string-downcase (string tag)) result) t))))
 
 (defun %xml-parser-function ()
-  (let ((pkg (or (find-package "IO.GITHUB.CL-SDK.XML")
-                 (find-package :io.github.cl-sdk.xml))))
+  (let ((pkg (find-package :io.github.cl-sdk.xml)))
     (when pkg
       (or (find-symbol "PARSE" pkg)
           (find-symbol "PARSE-STRING" pkg)
@@ -87,6 +86,7 @@
   "Sanitize HTML/XML-like INPUT based on DENIED-TAGS.
 DENIED-TAGS removes matching tags while keeping their text content.
 STRIP-CONTENT-TAGS is the subset of denied tags whose inner content is also removed.
+When `io.github.cl-sdk.xml` returns a normalized string during pre-parse, that string is sanitized.
 Returns a sanitized string."
   (multiple-value-bind (parsed parsedp) (%attempt-parse-with-cl-sdk-xml input)
     (when (and parsedp (stringp parsed))

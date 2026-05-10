@@ -1,6 +1,6 @@
-(defpackage #:cl-html-input-policies
+(defpackage #:io.github.cl-sdk.html-input-policies
   (:use #:cl)
   (:export #:sanitize-html-input
            #:parse-and-sanitize-html-input))
 
-(in-package :cl-html-input-policies)
+(in-package :io.github.cl-sdk.html-input-policies)

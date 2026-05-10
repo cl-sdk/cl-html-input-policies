@@ -1,4 +1,4 @@
-(asdf:defsystem #:cl-html-input-policies
+(asdf:defsystem #:io.github.cl-sdk.html-input-policies
   :author "Bruno Dias"
   :description "Create policies to accept html input ."
   :version #.(uiop:read-file-string "./version")

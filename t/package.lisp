@@ -1,4 +1,4 @@
-(defpackage #:cl-html-input-policies.test
-  (:use #:cl #:fiveam #:cl-html-input-policies))
+(defpackage #:io.github.cl-sdk.html-input-policies.test
+  (:use #:cl #:fiveam #:io.github.cl-sdk.html-input-policies))
 
-(in-package #:cl-html-input-policies.test)
+(in-package #:io.github.cl-sdk.html-input-policies.test)

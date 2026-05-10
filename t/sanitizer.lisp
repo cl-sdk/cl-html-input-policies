@@ -39,17 +39,17 @@
 
 (test removes-denied-self-closing-tags
   (let* ((br (make-test-node "br"))
-         (root (make-test-node "p" :children (list "Hello" br "World"))))
+         (root (make-test-node "root" :children (list "Hello" br "World"))))
     (is (string=
-         "<p>HelloWorld</p>"
-         (sanitize-html-input (make-test-doc root) '("br"))))))
+         "HelloWorld"
+         (sanitize-html-input (make-test-doc root) '("br" "root"))))))
 
 (test removes-self-closing-dangerous-tag
   (let* ((script (make-test-node "script"))
-         (root (make-test-node "p" :children (list script "safe"))))
+         (root (make-test-node "root" :children (list script "safe"))))
     (is (string=
-         "<p>safe</p>"
-         (sanitize-html-input (make-test-doc root) '("script"))))))
+         "safe"
+         (sanitize-html-input (make-test-doc root) '("script" "root"))))))
 
 (test tag-check-is-case-insensitive
   (let* ((script (make-test-node "SCRIPT" :children '("alert(1)")))

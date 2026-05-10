@@ -50,6 +50,7 @@
 DENIED-TAGS removes matching tags while keeping their text content.
 STRIP-CONTENT-TAGS identifies denied tags whose inner content is also removed and is normally a subset of DENIED-TAGS.
 INPUT must be an XML-DOCUMENT or XML-NODE from `io.github.cl-sdk.xml`.
+XML comments and processing instructions are removed from the output.
 Returns a sanitized string."
   (let* ((denied (%normalize-tag-set denied-tags))
          (strip-content (%normalize-tag-set strip-content-tags))

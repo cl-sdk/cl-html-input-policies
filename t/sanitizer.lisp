@@ -1,5 +1,8 @@
 (in-package #:cl-html-input-policies-test)
 
+(def-suite html-input-policies-suite)
+(in-suite html-input-policies-suite)
+
 (test removes-script-tag-and-content
   (is (string=
        "<p>HelloWorld</p>"

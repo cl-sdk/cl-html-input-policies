@@ -29,6 +29,25 @@
            local-name)))
     (t (string-downcase (princ-to-string name)))))
 
+(defun escape-fragment-text (text)
+  (with-output-to-string (out)
+    (loop for ch across text do
+      (case ch
+        (#\& (write-string "&amp;" out))
+        (#\< (write-string "&lt;" out))
+        (#\> (write-string "&gt;" out))
+        (t (write-char ch out))))))
+
+(defun escape-fragment-attribute (text)
+  (with-output-to-string (out)
+    (loop for ch across text do
+      (case ch
+        (#\& (write-string "&amp;" out))
+        (#\< (write-string "&lt;" out))
+        (#\> (write-string "&gt;" out))
+        (#\" (write-string "&quot;" out))
+        (t (write-char ch out))))))
+
 (defun render-sanitized-fragment (fragment)
   (labels ((render-node (node stream)
              (let ((tag (xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
@@ -38,7 +57,7 @@
                (dolist (attr attributes)
                  (format stream " ~a=\"~a\""
                          (xml-name->string (car attr))
-                         (if (cdr attr) (princ-to-string (cdr attr)) "")))
+                         (escape-fragment-attribute (if (cdr attr) (princ-to-string (cdr attr)) ""))))
                (if (null children)
                    (write-string "/>" stream)
                    (progn
@@ -48,7 +67,7 @@
                      (format stream "</~a>" tag)))))
            (render-child (child stream)
              (cond
-               ((stringp child) (write-string child stream))
+               ((stringp child) (write-string (escape-fragment-text child) stream))
                ((io.github.cl-sdk.xml:xml-node-p child) (render-node child stream))
                (t (write-string (princ-to-string child) stream)))))
     (with-output-to-string (out)

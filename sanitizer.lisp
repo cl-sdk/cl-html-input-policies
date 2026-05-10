@@ -85,8 +85,8 @@
 (defun sanitize-html-input (input denied-tags &key (strip-content-tags *default-strip-content-tags*))
   "Sanitize HTML/XML-like INPUT based on DENIED-TAGS.
 DENIED-TAGS removes matching tags while keeping their text content.
-STRIP-CONTENT-TAGS is the subset of denied tags whose inner content is also removed.
-When `io.github.cl-sdk.xml` returns a normalized string during pre-parse, that string is sanitized.
+STRIP-CONTENT-TAGS identifies denied tags whose inner content is also removed and is normally a subset of DENIED-TAGS.
+If `io.github.cl-sdk.xml` pre-parse returns a string, that string is sanitized.
 Returns a sanitized string."
   (multiple-value-bind (parsed parsedp) (%attempt-parse-with-cl-sdk-xml input)
     (when (and parsedp (stringp parsed))

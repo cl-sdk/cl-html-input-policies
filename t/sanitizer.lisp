@@ -1,6 +1,6 @@
 (in-package #:cl-html-input-policies-test)
 
-(test removes-dangerous-denied-tag-and-content
+(test removes-script-tag-and-content
   (is (string=
        "<p>HelloWorld</p>"
        (sanitize-html-input "<p>Hello<script>alert(1)</script>World</p>"

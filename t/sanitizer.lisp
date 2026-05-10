@@ -18,6 +18,7 @@
    :root root))
 
 (defun xml-name->string (name)
+  "Convert XML NAME representations to a comparable/renderable string."
   (cond
     ((stringp name) name)
     ((symbolp name) (string-downcase (symbol-name name)))
@@ -30,6 +31,7 @@
     (t (string-downcase (princ-to-string name)))))
 
 (defun escape-fragment-text (text)
+  "Escape TEXT as XML/HTML character data for string-based test assertions."
   (with-output-to-string (out)
     (loop for ch across text do
       (case ch
@@ -39,6 +41,7 @@
         (t (write-char ch out))))))
 
 (defun escape-fragment-attribute (text)
+  "Escape TEXT as an XML/HTML attribute value for test rendering."
   (with-output-to-string (out)
     (loop for ch across text do
       (case ch
@@ -49,6 +52,7 @@
         (t (write-char ch out))))))
 
 (defun render-sanitized-fragment (fragment)
+  "Render a sanitized FRAGMENT (strings and xml-node entries) to an XML string."
   (labels ((render-node (node stream)
              (let ((tag (xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
                    (attributes (io.github.cl-sdk.xml:xml-node-attributes node))

@@ -42,21 +42,21 @@
          (root (node "p" :children (list "Hello" br "World"))))
     (is (string=
          "<p>HelloWorld</p>"
-         (sanitize-html-input root '("br"))))))
+         (sanitize-html-input (doc root) '("br"))))))
 
 (test removes-self-closing-dangerous-tag
   (let* ((script (node "script"))
          (root (node "p" :children (list script "safe"))))
     (is (string=
          "<p>safe</p>"
-         (sanitize-html-input root '("script"))))))
+         (sanitize-html-input (doc root) '("script"))))))
 
 (test tag-check-is-case-insensitive
   (let* ((script (node "SCRIPT" :children '("alert(1)")))
          (root (node "div" :children (list script))))
     (is (string=
          "<div/>"
-         (sanitize-html-input root '("script"))))))
+         (sanitize-html-input (doc root) '("script"))))))
 
 (test removes-nested-script-tags-with-content
   (let* ((inner (node "script" :children '("2")))
@@ -64,7 +64,7 @@
          (root (node "p" :children (list outer "x"))))
     (is (string=
          "<p>x</p>"
-         (sanitize-html-input root '("script"))))))
+         (sanitize-html-input (doc root) '("script"))))))
 
 (test removes-script-tags-with-attributes-and-content
   (let* ((script (node "script"
@@ -73,7 +73,7 @@
          (root (node "p" :children (list script "ok"))))
     (is (string=
          "<p>ok</p>"
-         (sanitize-html-input root '("script"))))))
+         (sanitize-html-input (doc root) '("script"))))))
 
 (test accepts-xml-document-structures-as-input
   (let* ((script-node (io.github.cl-sdk.xml:make-xml-node

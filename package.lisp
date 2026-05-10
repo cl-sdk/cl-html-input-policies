@@ -1,4 +1,6 @@
 (defpackage #:cl-html-input-policies
-  (:use #:cl))
+  (:use #:cl)
+  (:export #:sanitize-html-input
+           #:parse-and-sanitize-html-input))
 
 (in-package :cl-html-input-policies)

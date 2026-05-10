@@ -1,0 +1,8 @@
+("quicklisp" .
+ (:class qlot/source/dist:source-dist
+  :initargs (:distribution "https://beta.quicklisp.org/dist/quicklisp.txt" :%version :latest)
+  :version "2026-01-01"))
+("io.github.cl-sdk.xml" .
+ (:class qlot/source/github:source-github
+  :initargs (:repos "cl-sdk/io.github.cl-sdk.xml" :ref nil :branch nil :tag nil)
+  :version "github-dbe543528597d5ac48ffe3feaa5b7a0677c40e20"))

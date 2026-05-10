@@ -110,6 +110,6 @@ Returns a sanitized string."
         ((io.github.cl-sdk.xml:xml-node-p input)
          (write-node input))
         (t
-         (error "Unsupported input type ~S. Expected XML-DOCUMENT or XML-NODE."
+         (error "Unsupported input type ~S. Expected io.github.cl-sdk.xml:XML-DOCUMENT or io.github.cl-sdk.xml:XML-NODE."
                 (type-of input)))))
     (get-output-stream-string output)))

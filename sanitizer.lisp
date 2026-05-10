@@ -1,4 +1,4 @@
-(in-package #:cl-html-input-policies)
+(in-package #:io.github.cl-sdk.html-input-policies)
 
 (defparameter *default-strip-content-tags*
   '("script" "style" "iframe" "object" "embed" "template" "svg" "math")

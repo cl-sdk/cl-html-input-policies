@@ -1,4 +1,4 @@
-## cl-html-input-policies
+## io.github.cl-sdk.html-input-policies
 
 Create policies to accept html input.
 

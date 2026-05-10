@@ -4,7 +4,7 @@
 
 (asdf:initialize-source-registry)
 
-(ql:quickload :cl-html-input-policies.test)
+(ql:quickload :io.github.cl-sdk.html-input-policies.test)
 
 (unless (5am:run-all-tests)
   (uiop:quit -1))

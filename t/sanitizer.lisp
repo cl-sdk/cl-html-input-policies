@@ -1,4 +1,4 @@
-(in-package #:cl-html-input-policies.test)
+(in-package #:io.github.cl-sdk.html-input-policies.test)
 
 (def-suite html-input-policies-suite)
 (in-suite html-input-policies-suite)
@@ -24,14 +24,14 @@
 (defun render-sanitized-fragment (fragment)
   "Render a sanitized FRAGMENT (strings and xml-node entries) to an XML string."
   (labels ((render-node (node stream)
-             (let ((tag-name (cl-html-input-policies::%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
+             (let ((tag-name (io.github.cl-sdk.html-input-policies::%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
                    (attributes (io.github.cl-sdk.xml:xml-node-attributes node))
                    (children (io.github.cl-sdk.xml:xml-node-children node)))
                (format stream "<~a" tag-name)
                (dolist (attr attributes)
                  (format stream " ~a=\"~a\""
-                         (cl-html-input-policies::%xml-name->string (car attr))
-                         (cl-html-input-policies::%escape-attribute-value
+                         (io.github.cl-sdk.html-input-policies::%xml-name->string (car attr))
+                         (io.github.cl-sdk.html-input-policies::%escape-attribute-value
                           (attribute-value->string (cdr attr)))))
                (if (null children)
                    (write-string "/>" stream)
@@ -42,9 +42,9 @@
                      (format stream "</~a>" tag-name)))))
            (render-child (child stream)
              (cond
-               ((stringp child) (write-string (cl-html-input-policies::%escape-text child) stream))
+               ((stringp child) (write-string (io.github.cl-sdk.html-input-policies::%escape-text child) stream))
                ((io.github.cl-sdk.xml:xml-node-p child) (render-node child stream))
-               (t (write-string (cl-html-input-policies::%escape-text (princ-to-string child)) stream)))))
+               (t (write-string (io.github.cl-sdk.html-input-policies::%escape-text (princ-to-string child)) stream)))))
     (with-output-to-string (out)
       (dolist (entry fragment)
         (render-child entry out)))))

@@ -55,9 +55,7 @@ Returns a sanitized string."
          (strip-content (%normalize-tag-set strip-content-tags))
          (output (make-string-output-stream)))
     (labels
-        ((skip-node-content ()
-           nil)
-         (skip-child-node-p (child)
+        ((skip-child-node-p (child)
            (or (io.github.cl-sdk.xml:xml-comment-p child)
                (io.github.cl-sdk.xml:xml-pi-p child)))
          (write-attributes (attributes)
@@ -78,15 +76,15 @@ Returns a sanitized string."
                   (children (io.github.cl-sdk.xml:xml-node-children node)))
               (cond
                 ((and denied-p strip-p)
-                 (skip-node-content))
+                 nil)
                 (denied-p
                  (write-children children))
                 (t
                  (format output "<~a" tag-name)
-                (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
-                (if (null children)
-                    (write-string "/>" output)
-                    (progn
+                 (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
+                 (if (null children)
+                     (write-string "/>" output)
+                     (progn
                       (write-char #\> output)
                       (write-children children)
                       (format output "</~a>" tag-name)))))))

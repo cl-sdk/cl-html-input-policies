@@ -57,25 +57,34 @@
            text))
   text)
 
+(defun %require-string (value context)
+  (unless (stringp value)
+    (error "Expected ~a to be a string, got ~S" context value))
+  value)
+
 (defun %serialize-xml-child (child)
   (cond
     ((stringp child) (%escape-text child))
     ((io.github.cl-sdk.xml:xml-node-p child) (%serialize-xml-node child))
     ((io.github.cl-sdk.xml:xml-comment-p child)
-     (let ((data (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-comment-data child) "")
+     (let ((data (%ensure-no-sequence (%require-string (io.github.cl-sdk.xml:xml-comment-data child)
+                                                       "XML comment data")
                                       "-->"
                                       "XML comment")))
        (format nil "<!--~a-->" data)))
     ((io.github.cl-sdk.xml:xml-cdata-p child)
-     (let ((data (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-cdata-data child) "")
+     (let ((data (%ensure-no-sequence (%require-string (io.github.cl-sdk.xml:xml-cdata-data child)
+                                                       "XML CDATA data")
                                       "]]>"
                                       "XML CDATA")))
        (format nil "<![CDATA[~a]]>" data)))
     ((io.github.cl-sdk.xml:xml-pi-p child)
-     (let ((target (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-pi-target child) "")
+     (let ((target (%ensure-no-sequence (%require-string (io.github.cl-sdk.xml:xml-pi-target child)
+                                                         "XML processing-instruction target")
                                         "?>"
                                         "XML processing-instruction target"))
-           (data (%ensure-no-sequence (or (io.github.cl-sdk.xml:xml-pi-data child) "")
+           (data (%ensure-no-sequence (%require-string (io.github.cl-sdk.xml:xml-pi-data child)
+                                                       "XML processing-instruction data")
                                       "?>"
                                       "XML processing-instruction data")))
        (format nil "<?~a ~a?>" target data)))

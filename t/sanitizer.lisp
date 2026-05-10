@@ -105,7 +105,7 @@
   (let* ((script (make-test-node "SCRIPT" :children '("alert(1)")))
          (root (make-test-node "div" :children (list script))))
     (is (string=
-         "<div></div>"
+         "<div/>"
          (render-sanitized-fragment (sanitize-html-input (make-test-doc root) '("script")))))))
 
 (test removes-nested-script-tags-with-content

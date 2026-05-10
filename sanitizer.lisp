@@ -55,7 +55,12 @@ Returns a sanitized string."
          (strip-content (%normalize-tag-set strip-content-tags))
          (output (make-string-output-stream)))
     (labels
-        ((write-attributes (attributes)
+        ((skip-node-content ()
+           nil)
+         (skip-child-node-p (child)
+           (or (io.github.cl-sdk.xml:xml-comment-p child)
+               (io.github.cl-sdk.xml:xml-pi-p child)))
+         (write-attributes (attributes)
            (dolist (attr attributes)
              (let ((name (%xml-name->string (car attr)))
                    (value (cdr attr)))
@@ -71,13 +76,13 @@ Returns a sanitized string."
                   (denied-p (gethash tag-name-down denied))
                   (strip-p (gethash tag-name-down strip-content))
                   (children (io.github.cl-sdk.xml:xml-node-children node)))
-             (cond
-               ((and denied-p strip-p)
-                nil)
-               (denied-p
-                (write-children children))
-               (t
-                (format output "<~a" tag-name)
+              (cond
+                ((and denied-p strip-p)
+                 (skip-node-content))
+                (denied-p
+                 (write-children children))
+                (t
+                 (format output "<~a" tag-name)
                 (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
                 (if (null children)
                     (write-string "/>" output)
@@ -95,9 +100,7 @@ Returns a sanitized string."
               (write-string (%escape-text (%require-string (io.github.cl-sdk.xml:xml-cdata-data child)
                                                            "XML CDATA data"))
                             output))
-             ((io.github.cl-sdk.xml:xml-comment-p child)
-              nil)
-             ((io.github.cl-sdk.xml:xml-pi-p child)
+             ((skip-child-node-p child)
               nil)
              (t
               (write-string (%escape-text (princ-to-string child)) output)))))

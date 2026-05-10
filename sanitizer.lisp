@@ -51,6 +51,7 @@ DENIED-TAGS removes matching tags while keeping their text content.
 STRIP-CONTENT-TAGS identifies denied tags whose inner content is also removed and is normally a subset of DENIED-TAGS.
 INPUT must be an XML-DOCUMENT or XML-NODE from `io.github.cl-sdk.xml`.
 XML comments and processing instructions are removed from the output.
+CDATA nodes are treated as text and escaped in output.
 Returns a sanitized string."
   (let* ((denied (%normalize-tag-set denied-tags))
          (strip-content (%normalize-tag-set strip-content-tags))
@@ -60,11 +61,11 @@ Returns a sanitized string."
            (or (io.github.cl-sdk.xml:xml-comment-p child)
                (io.github.cl-sdk.xml:xml-pi-p child)))
          (node-policy-state (node)
-           (let* ((tag-name (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
-                  (tag-name-down (string-downcase tag-name)))
-             (values tag-name
-                     (gethash tag-name-down denied)
-                     (gethash tag-name-down strip-content))))
+           (let* ((serialized-tag-name (%xml-name->string (io.github.cl-sdk.xml:xml-node-tag node)))
+                  (policy-tag-name (string-downcase serialized-tag-name)))
+             (values serialized-tag-name
+                     (gethash policy-tag-name denied)
+                     (gethash policy-tag-name strip-content))))
          (node-stripped-with-content-p (node)
            (multiple-value-bind (tag-name denied-p strip-p) (node-policy-state node)
              (declare (ignore tag-name))
@@ -80,7 +81,7 @@ Returns a sanitized string."
            (dolist (child children)
              (write-child child)))
          (write-node (node)
-           (multiple-value-bind (tag-name denied-p strip-p) (node-policy-state node)
+           (multiple-value-bind (serialized-tag-name denied-p strip-p) (node-policy-state node)
              (let ((children (io.github.cl-sdk.xml:xml-node-children node)))
                (cond
                  ((and denied-p strip-p)
@@ -88,14 +89,14 @@ Returns a sanitized string."
                  (denied-p
                   (write-children children))
                  (t
-                  (format output "<~a" tag-name)
+                  (format output "<~a" serialized-tag-name)
                   (write-attributes (io.github.cl-sdk.xml:xml-node-attributes node))
                   (if (null children)
                       (write-string "/>" output)
                       (progn
                         (write-char #\> output)
                         (write-children children)
-                        (format output "</~a>" tag-name))))))))
+                        (format output "</~a>" serialized-tag-name))))))))
          (write-child (child)
            (cond
              ((stringp child)

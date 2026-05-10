@@ -60,6 +60,14 @@
          "HelloWorld"
          (sanitize-html-input (make-test-doc root) '("script" "root"))))))
 
+(test strips-denied-root-with-strip-content
+  (let ((root (make-test-node "script" :children (list "Hello" "World"))))
+    (is (string=
+         ""
+         (sanitize-html-input (make-test-doc root)
+                              '("script")
+                              :strip-content-tags '("script"))))))
+
 (test tag-check-is-case-insensitive
   (let* ((script (make-test-node "SCRIPT" :children '("alert(1)")))
          (root (make-test-node "div" :children (list script))))
